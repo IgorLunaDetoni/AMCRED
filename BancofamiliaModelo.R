@@ -1,7 +1,11 @@
 library(readxl)
 library(tidyverse)
 library(ggplot2)
-
+library(klaR)
+library(cluster)
+library(Matrix)
+library(recipes)
+library(writexl)
 library(reshape2)
 
 # Importing ---------------------------------------------------------------
@@ -73,17 +77,51 @@ p <- ggplot(meltData, aes(factor(variable), value))
 p + geom_boxplot() + facet_wrap(~variable, scale="free")
 
 
-
-GGally::ggpairs(df1)
-
-
 # Definir as variáveis necessárias pra clusterização ----------------------
 
+gg <- df1 %>% select(c(renda_cliente,situacao,valor_emprestimo,renegociado,valor_solicitado,prazo_em_meses,
+                       melhor_valor_parcela, tipo_atividade,tempo_atividade,total_receitas,numero_de_pessoas_na_casa,
+                       situacao_do_imovel,tempo_de_residancia__anos,media_dos_faturamentos))
+
+GGally::ggpairs(gg)
+
+# Segunda limpeza ---------------------------------------------------------
+
+
+# transformando em dummies ------------------------------------------------
+
+dummies <- gg %>%  recipe(situacao~.) %>%
+  step_dummy(c(situacao,tipo_atividade,tempo_atividade,situacao_do_imovel,tempo_de_residancia__anos), one_hot = TRUE) %>% 
+  step_normalize(c(renda_cliente,valor_emprestimo,valor_solicitado,melhor_valor_parcela,total_receitas)) %>% 
+  prep() %>% bake(gg)
 
 
 
+# PCA ---------------------------------------------------------------------
 
+dummies<-na.omit(dummies)
+
+pCA_ <-prcomp(dummies)
+plot(pCA_$sdev^2/sum(pCA_$sdev^2),xlab = "PCA", ylab = "Proporção da variância", type ="l")
+
+plot(pCA_$sdev, xlab = "PC", ylab = "Eigenvalues", type = "l")
  
+
+
+# Kmodes ------------------------------------------------------------------
+
+result1<-kmodes(dummies, 6, iter.max = 10, weighted = FALSE)
+result1$size
+result1$modes
+
+#Colorindo de acordo com os clusters
+plot(pCA_$x[,1],pCA_$x[,6],col=result1$cluster)
+
+
+
+plot(pCA_$sdev^2/sum(pCA_$sdev^2),xlab = "PCA", ylab = "Proporção da variância", type ="l")
+
+
 
 
 
