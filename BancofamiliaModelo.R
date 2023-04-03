@@ -92,8 +92,11 @@ GGally::ggpairs(gg)
 
 dummies <- gg %>%  recipe(situacao~.) %>%
   step_dummy(c(situacao,tipo_atividade,tempo_atividade,situacao_do_imovel,tempo_de_residancia__anos), one_hot = TRUE) %>% 
-  step_normalize(c(renda_cliente,valor_emprestimo,valor_solicitado,melhor_valor_parcela,total_receitas)) %>% 
+  step_normalize(c(renda_cliente,valor_emprestimo,valor_solicitado,melhor_valor_parcela,total_receitas,media_dos_faturamentos,prazo_em_meses)) %>% 
+  step_rm(c(identificação)) %>% 
   prep() %>% bake(gg)
+
+
 
 
 
@@ -120,6 +123,11 @@ plot(pCA_$x[,1],pCA_$x[,6],col=result1$cluster)
 
 
 plot(pCA_$sdev^2/sum(pCA_$sdev^2),xlab = "PCA", ylab = "Proporção da variância", type ="l")
+
+
+
+
+# hcclust muito chato pra fazer
 
 
 
