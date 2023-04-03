@@ -7,6 +7,7 @@ library(Matrix)
 library(recipes)
 library(writexl)
 library(reshape2)
+library(factoextra)
 
 # Importing ---------------------------------------------------------------
 
@@ -36,7 +37,7 @@ names(df_contratos) <- tolower(names(df_contratos))
 
 bigdf <- left_join(df_contratos,df_Socio, by = "identificação" )
 
-bigdf<-drop_na(bigdf)
+bigdf<-tidyr::drop_na(bigdf)
 
 
 # Mantendo linhas com a combinação de id e data de contrato mais recentes
@@ -56,7 +57,7 @@ bigdf$renda_cliente <- as.numeric(bigdf$renda_cliente)
 bigdf$valor_emprestimo <- as.numeric(bigdf$valor_emprestimo)
 bigdf$prestacao<-as.numeric(bigdf$prestacao)
 bigdf$atraso_maximo<-as.numeric(bigdf$atraso_maximo)
-df1<-bigdf %>% select(-c(bairro,cep,identificação,
+df1<-bigdf %>% dplyr::select(-c(bairro,cep,identificação,
                          contrato,data_inclusao,atividade,data_vencimento_final,
                          data_vencimento_incial, melhor_data_vencimento,data_liberacao,data_contrato,data_liquidacao))
 
@@ -79,8 +80,9 @@ p + geom_boxplot() + facet_wrap(~variable, scale="free")
 
 # Definir as variáveis necessárias pra clusterização ----------------------
 
-gg <- df1 %>% select(c(renda_cliente,situacao,valor_emprestimo,renegociado,valor_solicitado,prazo_em_meses,
-                       melhor_valor_parcela, tipo_atividade,tempo_atividade,total_receitas,numero_de_pessoas_na_casa,
+gg <- df1 %>% dplyr::select(c(renda_cliente,situacao,valor_emprestimo,renegociado,valor_solicitado,prazo_em_meses,
+                       melhor_valor_parcela, tipo_atividade,tempo_atividade,
+                       total_receitas,numero_de_pessoas_na_casa,
                        situacao_do_imovel,tempo_de_residancia__anos,media_dos_faturamentos))
 
 GGally::ggpairs(gg)
@@ -126,8 +128,11 @@ plot(pCA_$sdev^2/sum(pCA_$sdev^2),xlab = "PCA", ylab = "Proporção da variânci
 
 
 
+# Kmeans raiz -------------------------------------------------------------
 
-# hcclust muito chato pra fazer
+
+km <- kmeans(dummies, centers = 6, nstart = 25)
+# fviz_cluster(km, data = df)
 
 
 
