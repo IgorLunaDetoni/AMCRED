@@ -40,10 +40,11 @@ tr_proc <- bake(receita_prep, new_data = NULL)
 tst_proc <- bake(receita_prep, new_data = x_test)
 
 
-print("Proporção de Teste")
+#Prop teste
 prop.table(table(tst_proc$clusters))
 
-print("Proporção de treino")
+
+#Prop treino
 prop.table(table(tr_proc$clusters))
 
 #### K folds validação cruzada
@@ -52,9 +53,6 @@ receita2 <- recipe(clusters~.,tr_proc) %>% prep()
 
 
 cv_split<-vfold_cv(tr_proc, v=5)
-
-
-
 
 
 
