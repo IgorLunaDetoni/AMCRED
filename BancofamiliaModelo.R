@@ -35,7 +35,7 @@ str(df_Socio)
 # Mudando para lowe rcase as colunas
 names(df_contratos) <- tolower(names(df_contratos))
 
-bigdf <- left_join(df_contratos,df_Socio, by = "identificação" )
+bigdf <- dplyr::left_join(df_contratos,df_Socio, by = "identificação" )
 
 bigdf<-tidyr::drop_na(bigdf)
 
