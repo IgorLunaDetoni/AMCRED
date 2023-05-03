@@ -1,5 +1,3 @@
-
-
 library(tidyverse)
 library(parsnip)
 library(rsample)
@@ -9,29 +7,39 @@ library(themis)
 library(tune)
 library(yardstick)
 library(dplyr)
+library(pROC)
+
+# Arquivo Feather ---------------------------------------------------------
+library(arrow)
+library(feather)
+
+df<-arrow::read_feather("BLUSOL/BLUSOL/big_frame.feather")
+
 # Pegar os dados do Aruã --------------------------------------------------
 
-df<-read.csv('BLUSOL/BLUSOL/df.csv')
+# 
+# 
+# df<-read.csv('BLUSOL/BLUSOL/df.csv')
 
 
 # Modelo classificação ----------------------------------------------------
 
 
 # SMOTE -------------------------------------------------------------------
-
+df$classificacao<- NULL
 df$DEFAULT<-as.factor(df$DEFAULT)
-df1 <- themis::smote(df,var = "DEFAULT", k = 6, over_ratio = 1)
-prop.table(table(df1$DEFAULT))
+# df1 <- themis::smote(df,var = "DEFAULT", k = 6, over_ratio = 1)
+# prop.table(table(df1$DEFAULT))
 
 
 
 # Split -------------------------------------------------------------------
 
 
-split <- initial_split(df1, prop = 0.75)
+split <- initial_split(df1, prop = 0.65)
 x_train <- training(split)
 x_test <- testing(split)
-
+x_train <- themis::smote(x_train,var = "DEFAULT", k = 5, over_ratio = 1)
 
 ## Recipes
 
@@ -82,7 +90,7 @@ boost_grid<-tune_grid(boost_tree_xgboost_spec,
                       receita2,
                       resamples = cv_split,
                       grid = 15,
-                      metrics = metric_set(accuracy,kap))
+                      metrics = metric_set(yardstick::roc_auc,accuracy,kap))
 
 
 #### Métricas XGBoost
@@ -117,6 +125,26 @@ resultado_xg
 
 
 
+# Curva AUC XGBoost ---------------------------------------------------------------
+
+
+xg_resultado <- boost_fit %>% predict(new_data = tst_proc, type = "prob") %>% 
+  mutate(DEFAULT = tst_proc$DEFAULT)
+
+yardstick::roc_auc(xg_resultado, DEFAULT, .pred_True)
+
+
+
+# Plot tune results -------------------------------------------------------
+
+boost_grid<-tune_grid(boost_tree_xgboost_spec, 
+                      receita2,
+                      resamples = cv_split,
+                      grid = 15,
+                      metrics = metric_set(yardstick::roc_auc))
+
+autoplot(boost_grid)
+
 # Random forest -----------------------------------------------------------
 
 rand_forest_ranger_spec <-
@@ -129,7 +157,7 @@ doParallel::registerDoParallel()
 boost_grid<-tune_grid(rand_forest_ranger_spec, 
                       receita2,
                       resamples = cv_split,
-                      grid = 10,
+                      grid = 15,
                       metrics = metric_set(accuracy,kap))
 
 boost_grid %>% 
@@ -145,7 +173,7 @@ boost_fit2
 saveRDS(boost_fit2,"randomforest.rda")
 
 fitted<-boost_fit2 %>%
-  predict(new_data = tst_proc) %>%
+  predict(new_data = tst_proc, type = "prob") %>%
   mutate(observado = tst_proc$DEFAULT,
          modelo = "Random Tuned")
 
@@ -180,16 +208,16 @@ boost_grid %>%
 best<-boost_grid %>% 
   select_best("kap")
 
-boost_fit2 <- finalize_model(svm_linear_kernlab_spec, parameters = best) %>% 
+boost_fit3 <- finalize_model(svm_linear_kernlab_spec, parameters = best) %>% 
   fit(DEFAULT~.,tr_proc)
-boost_fit2
+boost_fit3
 
-saveRDS(boost_fit2,"SVM.rda")
-
-
+saveRDS(boost_fit3,"SVM.rda")
 
 
-fitted<-boost_fit2 %>%
+
+
+fitted<-boost_fit3 %>%
   predict(new_data = tst_proc) %>%
   mutate(observado = tst_proc$DEFAULT,
          modelo = "SVM Tuned")
@@ -202,3 +230,69 @@ resultado <- xc %>%
   metrics(truth = observado, estimate = .pred_class)
 
 resultado
+
+
+
+
+# Testando vetores de saída com xgboost e random forest -------------------
+
+
+boost_fit$censor_probs
+
+prob<-predict(boost_fit, tst_proc, type = "prob")
+
+
+
+
+prob<-cbind(prob,tst_proc)
+prob<-prob %>% select(c(.pred_FALSE,.pred_TRUE,DEFAULT))
+
+
+# Conta de padeiro do Aruã
+
+# ((prob %>% dplyr::filter(DEFAULT=="True"))*14+
+#   (1-(prob %>%dplyr::filter(DEFAULT=="False") %>% count())))/
+#   ((prob %>% dplyr::filter(DEFAULT== "True") %>% count())*14+
+#   (prob %>% dplyr::filter(DEFAULT== "False") %>% count()))
+
+
+x<-prob %>% select(c(DEFAULT,.pred_TRUE)) %>% dplyr::filter(DEFAULT=="TRUE")
+y<-prob %>% select(c(DEFAULT,.pred_FALSE)) %>% dplyr::filter(DEFAULT=="FALSE")
+h<-prob %>% select(c(DEFAULT,.pred_FALSE)) %>% dplyr::filter(DEFAULT=="TRUE")
+z<-prob %>% select(c(DEFAULT,.pred_TRUE)) %>% dplyr::filter(DEFAULT=="FALSE")
+
+(sum(x$.pred_TRUE)*14+(sum(y$.pred_FALSE)))/((x %>% select(.pred_TRUE) %>% count())*14+
+  (y %>% select(.pred_FALSE) %>% count()))
+
+
+# Caso queira transformar em binario --------------------------------------
+
+
+
+prob<-predict(boost_fit2, tst_proc, type = "prob")
+prob<-cbind(prob,tst_proc)
+prob<-prob %>% select(c(.pred_FALSE,.pred_TRUE,DEFAULT))
+
+
+# Conta de padeiro do Aruã
+
+
+x<-prob %>% select(c(DEFAULT,.pred_TRUE)) %>% dplyr::filter(DEFAULT=="TRUE")
+y<-prob %>% select(c(DEFAULT,.pred_FALSE)) %>% dplyr::filter(DEFAULT=="FALSE")
+h<-prob %>% select(c(DEFAULT,.pred_FALSE)) %>% dplyr::filter(DEFAULT=="TRUE")
+z<-prob %>% select(c(DEFAULT,.pred_TRUE)) %>% dplyr::filter(DEFAULT=="FALSE")
+
+(sum(x$.pred_TRUE)*14+(sum(y$.pred_FALSE)))/((x %>% select(.pred_TRUE) %>% count())*14+
+                                               (y %>% select(.pred_FALSE) %>% count()))
+
+
+# Curva ROC ---------------------------------------------------------------
+xc$observado<-as.integer(as.logical(xc$observado))
+xc$.pred_class<- as.integer(as.logical(xc$.pred_class))
+# Threshold <- prob %>% roc_auc(truth = DEFAULT, .pred_FALSE)
+
+
+roc_ <- roc(xc$observado, xc$.pred_class, smoothed = TRUE, plot = TRUE)
+
+plot(roc_svm_test, add = TRUE, col = "red", print.auc = TRUE, print.auc.x = 0.5, print.auc.y = 0.3)
+legend(0.3, 0.2, legend = c("test-svm"), lty = c(1), col = c("blue"))
