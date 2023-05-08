@@ -91,7 +91,7 @@ boost_grid<-tune_grid(boost_tree_xgboost_spec,
                       resamples = cv_split,
                       grid = 15,
                       metrics = metric_set(yardstick::roc_auc,accuracy,kap))
-
+ 
 
 #### Métricas XGBoost
 
