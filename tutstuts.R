@@ -296,3 +296,6 @@ roc_ <- roc(xc$observado, xc$.pred_class, smoothed = TRUE, plot = TRUE)
 
 plot(roc_svm_test, add = TRUE, col = "red", print.auc = TRUE, print.auc.x = 0.5, print.auc.y = 0.3)
 legend(0.3, 0.2, legend = c("test-svm"), lty = c(1), col = c("blue"))
+
+
+
